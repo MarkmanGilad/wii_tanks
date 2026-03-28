@@ -11,7 +11,7 @@ from Advanced_Random_Agent import Advanced_Random_Agent
 import wandb
 
 def main():
-    num = 10
+    num = 11
     env = Enviroment()
     env.init_screen()
     buffer = ReplayBuffer(path=None)
