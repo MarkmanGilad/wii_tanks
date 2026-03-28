@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import copy
 from Constants import *
 
-input_size = 36  # Adjusted input size based on state representation
+input_size = 48  # 4 per entity (x/W, y/H, cos(a), sin(a)) × (2 tanks + 10 bullets)
 layer1 = 64
 layer2 = 32
 output_size = 18  # Number of possible actions

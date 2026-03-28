@@ -98,29 +98,34 @@ class Enviroment:
         return 0
     
     def state(self):
+        import math
         state_list = []
-        state_list.append(self.tank1.rect.x) #1
-        state_list.append(self.tank1.rect.y) #2
-        state_list.append(self.tank1.angle)  #3
-        for bullet in self.Bullet_Group:      #18
-            state_list.append(bullet.rect.x)
-            state_list.append(bullet.rect.y)
-            state_list.append(bullet.angle)
+        # tank1: x/W, y/H, cos(angle), sin(angle)
+        state_list.append(self.tank1.rect.x / WIDTH)
+        state_list.append(self.tank1.rect.y / HEIGHT)
+        state_list.append(math.cos(math.radians(self.tank1.angle)))
+        state_list.append(math.sin(math.radians(self.tank1.angle)))
+        # tank1 bullets: 5 × (x/W, y/H, cos(angle), sin(angle))
+        for bullet in self.Bullet_Group:
+            state_list.append(bullet.rect.x / WIDTH)
+            state_list.append(bullet.rect.y / HEIGHT)
+            state_list.append(math.cos(math.radians(bullet.angle)))
+            state_list.append(math.sin(math.radians(bullet.angle)))
         for i in range(5 - len(self.Bullet_Group)):
-            state_list.append(0)
-            state_list.append(0)
-            state_list.append(0)
-        state_list.append(self.tank2.rect.x) #6
-        state_list.append(self.tank2.rect.y)
-        state_list.append(self.tank2.angle) #8
+            state_list.extend([0, 0, 0, 0])
+        # tank2: x/W, y/H, cos(angle), sin(angle)
+        state_list.append(self.tank2.rect.x / WIDTH)
+        state_list.append(self.tank2.rect.y / HEIGHT)
+        state_list.append(math.cos(math.radians(self.tank2.angle)))
+        state_list.append(math.sin(math.radians(self.tank2.angle)))
+        # enemy bullets: 5 × (x/W, y/H, cos(angle), sin(angle))
         for bullet in self.Enemy_Bullet_Group:
-            state_list.append(bullet.rect.x)
-            state_list.append(bullet.rect.y)
-            state_list.append(bullet.angle)
+            state_list.append(bullet.rect.x / WIDTH)
+            state_list.append(bullet.rect.y / HEIGHT)
+            state_list.append(math.cos(math.radians(bullet.angle)))
+            state_list.append(math.sin(math.radians(bullet.angle)))
         for i in range(5 - len(self.Enemy_Bullet_Group)):
-            state_list.append(0)
-            state_list.append(0)
-            state_list.append(0)
+            state_list.extend([0, 0, 0, 0])
         return torch.tensor(state_list, dtype=torch.float32)
 
     def reward_old(self):
@@ -197,27 +202,35 @@ class Enviroment:
         if done == 2:
             return REWARD_LOSE
 
-        # State indices:
-        # [0,1,2] = tank1 x,y,angle  [18,19,20] = tank2 x,y,angle
-        # [21+i*3 .. 23+i*3] for i in 0..4 = enemy bullet x,y,angle
+        # State layout (48 values):
+        # [0..3]   tank1: x/W, y/H, cos(a), sin(a)
+        # [4..23]  tank1 bullets: 5 × (x/W, y/H, cos(a), sin(a))
+        # [24..27] tank2: x/W, y/H, cos(a), sin(a)
+        # [28..47] enemy bullets: 5 × (x/W, y/H, cos(a), sin(a))
         def aim_err(s):
-            dx = s[18].item() - s[0].item()
-            dy = s[1].item()  - s[19].item()  # flip pygame y-axis
-            phi = math.degrees(math.atan2(dy, dx))
-            err = (phi - s[2].item()) % 360
+            dx = s[24].item() - s[0].item()   # normalized, direction preserved
+            dy = s[1].item()  - s[25].item()  # flip pygame y
+            phi = math.atan2(dy, dx)
+            tank1_angle = math.atan2(s[3].item(), s[2].item())
+            err = math.degrees(phi - tank1_angle) % 360
             if err > 180:
                 err -= 360
             return abs(err)
 
         def danger(s):
-            t1x, t1y = s[0].item(), s[1].item()
+            t1x = s[0].item() * WIDTH
+            t1y = s[1].item() * HEIGHT
             total = 0.0
             for i in range(5):
-                bx, by, ba = s[21+i*3].item(), s[22+i*3].item(), s[23+i*3].item()
+                base = 28 + i * 4
+                bx = s[base].item() * WIDTH
+                by = s[base + 1].item() * HEIGHT
+                bc = s[base + 2].item()
+                bs = s[base + 3].item()
                 if bx == 0 and by == 0:
                     continue  # padded empty slot
-                vx =  BULLET_SPEED * math.cos(math.radians(ba))
-                vy = -BULLET_SPEED * math.sin(math.radians(ba))
+                vx =  BULLET_SPEED * bc
+                vy = -BULLET_SPEED * bs
                 tx, ty = t1x - bx, t1y - by
                 if vx * tx + vy * ty > 0:
                     total += 1.0 / (math.hypot(tx, ty) + 1.0)

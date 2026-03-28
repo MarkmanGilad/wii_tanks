@@ -11,17 +11,11 @@ class Advanced_Random_Agent:
       0.0 = fully advanced (aim / dodge / shoot)
       0.5 = 50% chance of random each step
 
-    Behaviour (in priority order each step):
-    1. Dodge  – if an enemy bullet (tank1's bullet) is heading close, move/rotate away.
-    2. Aim    – rotate toward tank1 when not already facing it.
-    3. Shoot  – fire when roughly aimed at tank1.
-    4. Wander – otherwise pick a random movement action held for several frames.
-
     State tensor layout (mirrors Enviorment.state()):
-      [0,1,2]       tank1  x, y, angle
-      [3..17]       tank1 bullets  (5 × x,y,angle)
-      [18,19,20]    tank2  x, y, angle   ← this agent IS tank2
-      [21..35]      tank2 bullets  (5 × x,y,angle)
+      [0..3]       tank1: x/W, y/H, cos(a), sin(a)
+      [4..23]      tank1 bullets  (5 × x/W, y/H, cos(a), sin(a))
+      [24..27]     tank2: x/W, y/H, cos(a), sin(a)  ← this agent IS tank2
+      [28..47]     tank2 bullets  (5 × x/W, y/H, cos(a), sin(a))
     """
 
     # Tunable
@@ -41,8 +35,10 @@ class Advanced_Random_Agent:
             return self._random_action()
 
         # --- Unpack relevant state values ----------------------------
-        t1x  = float(state[0]);   t1y  = float(state[1])
-        t2x  = float(state[18]);  t2y  = float(state[19]);  t2a = float(state[20])
+        from Constants import WIDTH, HEIGHT
+        t1x  = float(state[0]) * WIDTH;   t1y  = float(state[1]) * HEIGHT
+        t2x  = float(state[24]) * WIDTH;  t2y  = float(state[25]) * HEIGHT
+        t2a  = math.degrees(math.atan2(float(state[27]), float(state[26])))
 
         # --- 1. Dodge check (tank1 bullets toward tank2) -------------
         dodge = self._dodge_needed(state, t2x, t2y)
@@ -87,14 +83,17 @@ class Advanced_Random_Agent:
 
     def _dodge_needed(self, state, t2x, t2y):
         """Return True if any tank1 bullet is close and heading toward tank2."""
+        from Constants import WIDTH, HEIGHT
         for i in range(5):
-            bx  = float(state[3 + i*3])
-            by  = float(state[4 + i*3])
-            ba  = float(state[5 + i*3])
+            base = 4 + i * 4
+            bx  = float(state[base]) * WIDTH
+            by  = float(state[base + 1]) * HEIGHT
+            bc  = float(state[base + 2])
+            bs  = float(state[base + 3])
             if bx == 0 and by == 0:
                 continue
-            vx =  BULLET_SPEED * math.cos(math.radians(ba))
-            vy = -BULLET_SPEED * math.sin(math.radians(ba))
+            vx =  BULLET_SPEED * bc
+            vy = -BULLET_SPEED * bs
             tx, ty = t2x - bx, t2y - by
             dist = math.hypot(tx, ty)
             if dist < self.DODGE_DIST and vx * tx + vy * ty > 0:
