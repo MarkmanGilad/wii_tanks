@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# Checkpoints (large model files)
+checkpoints/
+
+# Wandb logs
+wandb/
+
+# OS files
+Thumbs.db
+.DS_Store
