@@ -11,7 +11,7 @@ from Advanced_Random_Agent import Advanced_Random_Agent
 import wandb
 
 def main():
-    num = 4
+    num = 10
     env = Enviroment()
     env.init_screen()
     buffer = ReplayBuffer(path=None)
@@ -27,7 +27,7 @@ def main():
     screen = pygame.display.set_mode((WIDTH,HEIGHT))
     backround = pygame.image.load("Data/wood.png")
     screen.blit(backround, (0,0))
-    pygame.display.set_caption("TANKS!")
+    pygame.display.set_caption(f"TANKS! - Training #{num}")
 
     clock = pygame.time.Clock()
     FPS = 60
@@ -162,7 +162,8 @@ def main():
             Q_values = player1.Q(states, actions_index)
             # DDQN: online network selects best action, target network evaluates it
             next_actions, _ = player1.get_Actions_Values(next_states)       # online picks action
-            Q_hat_values = player1_hat.Q(next_states, next_actions)         # target evaluates it
+            with torch.no_grad():
+                Q_hat_values = player1_hat.Q(next_states, next_actions)         # target evaluates it
             loss = player1.DQN.loss(Q_values, rewards, Q_hat_values, dones)
             optim.zero_grad()
             loss.backward()
